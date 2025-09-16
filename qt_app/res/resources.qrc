@@ -1,0 +1,11 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource prefix="/icons">
+    <file>icons/check.svg</file>
+    <file>icons/copy.svg</file>
+    <file>icons/save.svg</file>
+    <file>icons/search.svg</file>
+    <file>icons/hash.svg</file>
+    <file>icons/settings.svg</file>
+    <file>icons/home.svg</file>
+</qresource>
+</RCC> 
