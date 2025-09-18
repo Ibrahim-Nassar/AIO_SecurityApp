@@ -5,7 +5,7 @@
   - config.py: central config (provider registry, defaults, feature flags like URLSCAN_SUBMIT)
   - models.py: data models and helpers (classify_ioc, vt_url_id, now_utc, aggregate)
   - cache.py: SQLite cache
-  - services.py: providers (VirusTotal, AbuseIPDB, OTX, urlscan, ThreatFox), enrich/check flows
+  - services.py: providers (VirusTotal, AbuseIPDB, OTX, ThreatFox), enrich/check flows (Urlscan removed)
   - export.py: CSV/JSON exports and mirrored CSV writer
 - qt_app: Qt UI (PySide6)
   - main.py: QApplication bootstrap + MainWindow
@@ -25,7 +25,7 @@
 flowchart LR
     GUI[Qt UI (qt_app)] --> W[AsyncTaskWorker]
     W --> S[Service layer: ioc_core.services.check_iocs]
-    S --> P[Providers: VT, AbuseIPDB, OTX, urlscan, ThreatFox]
+    S --> P[Providers: VT, AbuseIPDB, OTX, ThreatFox]
     S --> C[(SQLite Cache)]
     P --> H[(httpx AsyncClient)]
 ```

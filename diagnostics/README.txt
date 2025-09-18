@@ -1,7 +1,7 @@
 AUDIT SUMMARY (IOC Checker: GUI + CLI)
 
 1) Providers in GUI
-- Providers wired: VirusTotal, AbuseIPDB, OTX, urlscan (URL-only). The GUI builds provider list from checkboxes and config, and columns are created dynamically per selected providers. Urlscan is used only for IOC enrichment (URLs), not for Sandbox.
+- Providers wired: VirusTotal, AbuseIPDB, OTX, ThreatFox. (Urlscan removed.) The GUI builds provider list from checkboxes and config, and columns are created dynamically per selected providers.
 
 2) CSV mirror export
 - Single-file GUI path: _write_mirrored_csv(...) writes the original CSV columns plus one column per enabled provider (order matches grid), with values like "STATUS [score]". A separate simple exporter writes minimal CSV for non-CSV runs.

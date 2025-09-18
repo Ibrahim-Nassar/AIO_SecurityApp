@@ -17,7 +17,7 @@
 - qt_app/views/settings_page.py — removed `GREYNOISE_API_KEY` field
 
 ## Providers
-- Kept: VirusTotal, AbuseIPDB, OTX, urlscan
+- Kept: VirusTotal, AbuseIPDB, OTX, ThreatFox (Urlscan removed)
 - Added: ThreatFox (keyless, public)
 - Optional (not implemented here): SecurityTrails, CIRCL PDNS
 

@@ -1,7 +1,7 @@
 # IOC Checker Health Report
 
 ## Project status
-The project runs as a single-file GUI/CLI with modular providers (VirusTotal, AbuseIPDB, OTX) and optional urlscan (URL-only). GUI stays responsive via background threads; Sandbox has been removed; Hybrid Analysis integration deprecated. Cache is SQLite-backed; CSV mirror export is available.
+The project runs as a single-file GUI/CLI with modular providers (VirusTotal, AbuseIPDB, OTX, ThreatFox). (Urlscan removed.) GUI stays responsive via background threads; Cache is SQLite-backed; CSV mirror export is available.
 
 ## Smoke test results
 | Test | Result |
