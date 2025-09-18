@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QTimer, QPoint
-from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QTimer, QPoint, QObject, QEvent
+from PySide6.QtGui import QColor, QPainter, QPen, QPainterPath
 from PySide6.QtWidgets import (
 	QWidget,
 	QVBoxLayout,
@@ -34,7 +34,8 @@ class BusyOverlay(QWidget):
 		self._angle = 0
 		self._timer = QTimer(self)
 		self._timer.timeout.connect(self._tick)
-		self._bg = QColor(0, 0, 0, 90)
+		# Cleaner backdrop (slightly lighter alpha)
+		self._bg = QColor(0, 0, 0, 110)
 		self._spinner_color = QColor(255, 255, 255)
 		self._label = QLabel("Working…", self)
 		self._label.setStyleSheet("color: white; font-weight: 600;")
@@ -53,6 +54,13 @@ class BusyOverlay(QWidget):
 			self._text = text or "Working…"
 			self._label.setText(self._text)
 			self._label.setGeometry(0, self.height() // 2 + 20, self.width(), 24)
+			# Track parent geometry changes via eventFilter
+			try:
+				if isinstance(target, QWidget):
+					target.removeEventFilter(self)
+					target.installEventFilter(self)
+			except Exception:
+				pass
 		except Exception:
 			pass
 		super().show()
@@ -67,7 +75,24 @@ class BusyOverlay(QWidget):
 			self._timer.stop()
 		except Exception:
 			pass
+		# Avoid stale filter
+		try:
+			p = self.parent()
+			if isinstance(p, QWidget):
+				p.removeEventFilter(self)
+		except Exception:
+			pass
 		super().hide()
+
+	def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+		try:
+			if watched is self.parent() and isinstance(watched, QWidget):
+				if event.type() in (QEvent.Type.Resize, QEvent.Type.Move, QEvent.Type.Show, QEvent.Type.Hide):
+					self.setGeometry(watched.rect())
+					self._label.setGeometry(0, self.height() // 2 + 20, self.width(), 24)
+		except Exception:
+			pass
+		return False
 
 	def resizeEvent(self, e):  # noqa: N802
 		try:
@@ -115,7 +140,7 @@ class Toast(QWidget):
 		self._label = QLabel("")
 		self._label.setStyleSheet("color: #FFFFFF; font-weight: 600;")
 		lay.addWidget(self._label)
-		# Dark slate background and subtle border for light theme
+		# Background and border default (info)
 		self._bg = QColor(31, 41, 55)
 		self._border = QColor(17, 24, 39)
 		self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
@@ -128,12 +153,18 @@ class Toast(QWidget):
 	def paintEvent(self, e):  # noqa: N802
 		painter = QPainter(self)
 		painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+		# subtle shadow
+		shadow_path = QPainterPath()
+		rect = self.rect()
+		radius = 6
+		shadow_rect = rect.adjusted(2, 3, 2, 3)
+		shadow_path.addRoundedRect(shadow_rect, radius, radius)
+		painter.fillPath(shadow_path, QColor(0, 0, 0, 40))
+		# card
 		painter.setBrush(self._bg)
 		painter.setPen(QPen(self._border, 1))
-		rect = self.rect()
-		rect.adjust(0, 0, -1, -1)
-		radius = 6
-		painter.drawRoundedRect(rect, radius, radius)
+		card_rect = rect.adjusted(0, 0, -1, -1)
+		painter.drawRoundedRect(card_rect, radius, radius)
 		painter.end()
 
 	def show_message(self, parent: QWidget, text: str, timeout_ms: int = 2500) -> None:
@@ -159,7 +190,22 @@ class Toast(QWidget):
 
 	# New API alias matching spec
 	def show_toast(self, parent: QWidget, text: str, kind: str = "info", msec: int = 1800) -> None:
-		# Map kind to subtle color tint if needed in future
+		# Variants: info/success/warn/error
+		kind = (kind or "info").lower()
+		if kind == "success":
+			self._bg = QColor(16, 138, 72)
+			self._border = QColor(10, 95, 50)
+		elif kind == "warn" or kind == "warning":
+			self._bg = QColor(194, 120, 3)
+			self._border = QColor(145, 90, 3)
+		elif kind == "error":
+			self._bg = QColor(178, 34, 34)
+			self._border = QColor(120, 20, 20)
+		else:
+			self._bg = QColor(31, 41, 55)
+			self._border = QColor(17, 24, 39)
+		# Ensure readable text color
+		self._label.setStyleSheet("color: #FFFFFF; font-weight: 600;")
 		try:
 			self.show_message(parent, text, msec)
 		except Exception:

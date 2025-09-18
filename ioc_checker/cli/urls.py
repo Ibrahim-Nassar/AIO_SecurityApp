@@ -8,7 +8,7 @@ import httpx
 
 from ioc_core.config import DEFAULT_TTLS
 from ioc_core.models import AggregatedResult, aggregate
-from ioc_core.services import AbuseIPDBProvider, OTXProvider, UrlscanProvider, VirusTotalProvider, fetch_with_cache
+from ioc_core.services import AbuseIPDBProvider, OTXProvider, VirusTotalProvider, fetch_with_cache
 from ioc_core.cache import Cache
 
 
@@ -21,8 +21,7 @@ async def run_cli(urls: List[str], providers: List[str], out_path: str = "", tim
             provs.append(AbuseIPDBProvider(os.getenv("ABUSEIPDB_API_KEY")))
         elif n == "otx":
             provs.append(OTXProvider(os.getenv("OTX_API_KEY") or os.getenv("ALIENVAULT_OTX_API_KEY")))
-        elif n == "urlscan":
-            provs.append(UrlscanProvider(os.getenv("URLSCAN_API_KEY")))
+        # urlscan removed
 
     results: List[AggregatedResult] = []
     cache = Cache(".ioc_enricher_cache.sqlite")

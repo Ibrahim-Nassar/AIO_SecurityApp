@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install OS deps for Qt (offscreen)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-x11-0
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install Python deps
+        run: |
+          python -m pip install ruff mypy pytest pytest-qt httpx python-dotenv PySide6
+          if [ -f requirements-qt.txt ]; then python -m pip install -r requirements-qt.txt; fi
+
+      - name: Lint (ruff)
+        run: ruff .
+
+      - name: Type check (mypy, warn-only)
+        continue-on-error: true
+        run: mypy .
+
+      - name: Run tests (headless Qt)
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: pytest -q
+
+

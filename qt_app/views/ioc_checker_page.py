@@ -62,13 +62,10 @@ class IocCheckerPage(QWidget):
         self.chk_vt = QCheckBox("VirusTotal")
         self.chk_ab = QCheckBox("AbuseIPDB")
         self.chk_otx = QCheckBox("OTX")
-        self.chk_us = QCheckBox("urlscan")
-        self.chk_us.hide()  # urlscan removed from IOC checks
         self.chk_tf = QCheckBox("ThreatFox")
         self.chk_vt.setChecked(True)
         self.chk_ab.setChecked(True)
         self.chk_otx.setChecked(True)
-        self.chk_us.setChecked(False)
         self.chk_tf.setChecked(True)
         for w in (self.chk_vt, self.chk_ab, self.chk_otx, self.chk_tf):
             prov_layout.addWidget(w)
@@ -102,6 +99,7 @@ class IocCheckerPage(QWidget):
         self.btn_check.setToolTip("Run checks on selected providers (Ctrl+Enter)")
         self.btn_save = QPushButton("Save CSV")
         self.btn_cancel = QPushButton("Cancel")
+        self.btn_cancel.setProperty("class", "SecondaryButton")
         # Removed bypass cache and back per UI simplification
         self.btn_save.setEnabled(False)
         self.btn_cancel.setEnabled(False)
@@ -155,6 +153,7 @@ class IocCheckerPage(QWidget):
         hdr_row.addWidget(self.lbl_summary)
         hdr_row.addStretch(1)
         self.btn_copy = QPushButton("Copy Summary")
+        self.btn_copy.setProperty("class", "SecondaryButton")
         self.btn_copy.setEnabled(False)
         hdr_row.addWidget(self.btn_copy)
         summary_layout.addLayout(hdr_row)
@@ -337,7 +336,6 @@ class IocCheckerPage(QWidget):
             provs.append(core_services.OTXProvider(os.getenv("OTX_API_KEY") or os.getenv("ALIENVAULT_OTX_API_KEY")))
         if self.chk_tf.isChecked():
             provs.append(core_services.ThreatFoxProvider())
-        # urlscan is sandbox-only; removed from IOC checks
         return provs
 
     def _set_running(self, running: bool) -> None:

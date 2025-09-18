@@ -35,7 +35,7 @@ class SandboxPage(QWidget):
         root.setContentsMargins(10, 10, 10, 10)
         root.setSpacing(8)
 
-        head = QLabel("Sandbox (urlscan)")
+        head = QLabel("Sandbox")
         head.setProperty("muted", True)
         root.addWidget(head)
 
@@ -45,14 +45,14 @@ class SandboxPage(QWidget):
         self.txt_url.setPlaceholderText("https://example.com/path")
         self.txt_url.setAccessibleName("Sandbox URL Input")
         row.addWidget(self.txt_url, 1)
-        self.chk_submit = QCheckBox("Submit if not found")
-        self.chk_submit.setChecked(False)
-        row.addWidget(self.chk_submit)
+        # Submit option removed with Urlscan
         root.addLayout(row)
 
         btns = QHBoxLayout()
         self.btn_scan = QPushButton("Scan")
+        self.btn_scan.setProperty("class", "PrimaryButton")
         self.btn_cancel = QPushButton("Cancel")
+        self.btn_cancel.setProperty("class", "SecondaryButton")
         self.btn_cancel.setEnabled(False)
         btns.addWidget(self.btn_scan)
         btns.addWidget(self.btn_cancel)
@@ -105,14 +105,8 @@ class SandboxPage(QWidget):
                 pass
             return
 
-        # Configure submit flag for urlscan provider
-        try:
-            core_config.URLSCAN_SUBMIT = bool(self.chk_submit.isChecked())
-        except Exception:
-            pass
-
-        # urlscan removed; keep placeholder message
-        self._update_status("Sandbox disabled (urlscan removed)")
+        # Sandbox disabled (no Urlscan)
+        self._update_status("Sandbox disabled (no Urlscan).")
         try:
             self._toast.show_toast(self, "Sandbox disabled")
         except Exception:
@@ -176,13 +170,7 @@ class SandboxPage(QWidget):
             f"Verdict: {ar.status}",
             f"Score: {int(ar.score)}",
         ]
-        for pr in ar.providers:
-            if pr.provider == "urlscan":
-                lines.append(f"urlscan={pr.status} {int(pr.score) if pr.score else 0}")
-                if pr.raw_ref:
-                    lines.append(f"Report: {pr.raw_ref}")
-                if pr.evidence:
-                    lines.append("Evidence: " + ", ".join(pr.evidence[:6]))
+        # Urlscan data removed
         self.txt_out.setPlainText("\n".join(lines))
         try:
             self._toast.show_toast(self, "Scan complete.")

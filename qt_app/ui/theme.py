@@ -98,6 +98,26 @@ def _qss() -> str:
         background: {PRIMARY_HOVER.name()};
         border-color: {PRIMARY_HOVER.name()};
     }}
+    /* Secondary role */
+    QPushButton[class="SecondaryButton"] {{
+        background: {CARD_BG.name()};
+        color: {TEXT_PRIMARY.name()};
+        border: 1px solid {BORDER.name()};
+    }}
+    QPushButton[class="SecondaryButton"]:hover {{
+        background: #F3F8FA;
+        border-color: {PRIMARY.name()};
+    }}
+    /* Destructive role */
+    QPushButton[class="DestructiveButton"] {{
+        background: {ERROR.name()};
+        color: white;
+        border: 1px solid {ERROR.name()};
+    }}
+    QPushButton[class="DestructiveButton"]:hover {{
+        background: {ERROR.darker(110).name()};
+        border-color: {ERROR.darker(120).name()};
+    }}
     QPushButton:disabled {{
         opacity: 0.6;
     }}

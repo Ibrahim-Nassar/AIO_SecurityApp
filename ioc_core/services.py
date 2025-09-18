@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any, Dict, List, Optional, Tuple, Callable, cast
+import random
+import time
 
 import httpx
 
@@ -48,18 +50,22 @@ class VirusTotalProvider(BaseProvider):
             return ProviderResult(self.name, "INCONCLUSIVE", 0.0, [], None, None, False)
         url = self._endpoint(ioc, ioc_type)
         headers = {"x-apikey": self.api_key or ""}
-        t0 = now_utc()
+        endpoint_kind = "reputation"
+        t_resp = await _http_get_with_retries(client, url, headers=headers, params=None, timeout=timeout)
+        r, latency, status_code, err = t_resp.response, t_resp.latency_ms, t_resp.status_code, t_resp.error
         try:
-            try:
-                get_logger().info("provider start name=%s ep=%s", self.name, url.split("/api/")[-1] if "/api/" in url else url)
-            except Exception:
-                pass
-            r = await client.get(url, headers=headers, timeout=timeout)
-            latency = int((now_utc() - t0) * 1000)
-            try:
-                get_logger().info("provider http name=%s status=%s", self.name, r.status_code)
-            except Exception:
-                pass
+            log = get_logger()
+            log.info(
+                "provider=%s endpoint_kind=%s status_code=%s latency_ms=%s cache_hit=%s",
+                self.name,
+                endpoint_kind,
+                (status_code if status_code is not None else ("timeout" if err else "unknown")),
+                latency,
+                False,
+            )
+        except Exception:
+            pass
+        try:
             if r.status_code in (429,) or r.status_code >= 500:
                 return ProviderResult(self.name, "INCONCLUSIVE", 0.0, [f"http {r.status_code}"], url, latency, False)
             if r.status_code == 404:
@@ -124,7 +130,7 @@ class VirusTotalProvider(BaseProvider):
                 ref = url
             return ProviderResult(self.name, status, float(score), ev, ref, latency, False)
         except Exception as e:
-            return ProviderResult(self.name, "INCONCLUSIVE", 0.0, [str(e)], url, None, False)
+            return ProviderResult(self.name, "INCONCLUSIVE", 0.0, [str(e)], url, latency if isinstance(latency, int) else None, False)
 
 
 class AbuseIPDBProvider(BaseProvider):
@@ -137,18 +143,22 @@ class AbuseIPDBProvider(BaseProvider):
         url = "https://api.abuseipdb.com/api/v2/check"
         headers = {"Key": self.api_key or "", "Accept": "application/json"}
         params = {"ipAddress": ioc, "maxAgeInDays": "90"}
-        t0 = now_utc()
+        endpoint_kind = "check"
+        t_resp = await _http_get_with_retries(client, url, headers=headers, params=params, timeout=timeout)
+        r, latency, status_code, err = t_resp.response, t_resp.latency_ms, t_resp.status_code, t_resp.error
         try:
-            try:
-                get_logger().info("provider start name=%s ep=%s", self.name, "/api/v2/check")
-            except Exception:
-                pass
-            r = await client.get(url, headers=headers, params=params, timeout=timeout)
-            latency = int((now_utc() - t0) * 1000)
-            try:
-                get_logger().info("provider http name=%s status=%s", self.name, r.status_code)
-            except Exception:
-                pass
+            log = get_logger()
+            log.info(
+                "provider=%s endpoint_kind=%s status_code=%s latency_ms=%s cache_hit=%s",
+                self.name,
+                endpoint_kind,
+                (status_code if status_code is not None else ("timeout" if err else "unknown")),
+                latency,
+                False,
+            )
+        except Exception:
+            pass
+        try:
             if r.status_code in (429,) or r.status_code >= 500:
                 return ProviderResult(self.name, "INCONCLUSIVE", 0.0, [f"http {r.status_code}"], url, latency, False)
             if r.status_code == 404:
@@ -171,16 +181,24 @@ class AbuseIPDBProvider(BaseProvider):
                 status = "INCONCLUSIVE"
             ev: List[str] = [
                 f"confidence={int(conf)}",
-                f"totalReports={total}",
-                f"isPublic={is_public}",
+                f"total_reports={total}",
+                f"is_public={is_public}",
             ]
             for k in ("countryCode", "usageType", "isp", "domain", "lastReportedAt"):
                 val = d.get(k)
                 if val:
-                    ev.append(f"{k}={val}")
+                    # Normalize to snake_case where applicable
+                    if k == "countryCode":
+                        ev.append(f"country_code={val}")
+                    elif k == "usageType":
+                        ev.append(f"usage_type={val}")
+                    elif k == "lastReportedAt":
+                        ev.append(f"last_reported_at={val}")
+                    else:
+                        ev.append(f"{k.lower()}={val}")
             return ProviderResult(self.name, status, float(score), ev, f"https://www.abuseipdb.com/check/{ioc}", latency, False)
         except Exception as e:
-            return ProviderResult(self.name, "INCONCLUSIVE", 0.0, [str(e)], "https://www.abuseipdb.com", None, False)
+            return ProviderResult(self.name, "INCONCLUSIVE", 0.0, [str(e)], "https://www.abuseipdb.com", latency if isinstance(latency, int) else None, False)
 
 
 class OTXProvider(BaseProvider):
@@ -205,18 +223,22 @@ class OTXProvider(BaseProvider):
             return ProviderResult(self.name, "INCONCLUSIVE", 0.0, [], None, None, False)
         url = self._endpoint(ioc, ioc_type)
         headers = {"X-OTX-API-KEY": self.api_key or ""}
-        t0 = now_utc()
+        endpoint_kind = "reputation"
+        t_resp = await _http_get_with_retries(client, url, headers=headers, params=None, timeout=timeout)
+        r, latency, status_code, err = t_resp.response, t_resp.latency_ms, t_resp.status_code, t_resp.error
         try:
-            try:
-                get_logger().info("provider start name=%s ep=%s", self.name, url.split("/api/")[-1] if "/api/" in url else url)
-            except Exception:
-                pass
-            r = await client.get(url, headers=headers, timeout=timeout)
-            latency = int((now_utc() - t0) * 1000)
-            try:
-                get_logger().info("provider http name=%s status=%s", self.name, r.status_code)
-            except Exception:
-                pass
+            log = get_logger()
+            log.info(
+                "provider=%s endpoint_kind=%s status_code=%s latency_ms=%s cache_hit=%s",
+                self.name,
+                endpoint_kind,
+                (status_code if status_code is not None else ("timeout" if err else "unknown")),
+                latency,
+                False,
+            )
+        except Exception:
+            pass
+        try:
             if r.status_code in (429,) or r.status_code >= 500:
                 return ProviderResult(self.name, "INCONCLUSIVE", 0.0, [f"http {r.status_code}"], url, latency, False)
             if r.status_code == 404:
@@ -229,7 +251,7 @@ class OTXProvider(BaseProvider):
             names = [p.get("name") for p in refs if isinstance(p, dict) and p.get("name")]
             score = float(pulses)
             status = "SUSPICIOUS" if pulses >= 1 else "INCONCLUSIVE"
-            ev: List[str] = [f"pulses={pulses}"] + [f"pulse:{n}" for n in names[:5]]
+            ev: List[str] = [f"pulses={pulses}"] + [f"pulse={n}" for n in names[:5]]
             general = (data or {})
             rep = general.get("reputation")
             if isinstance(rep, (int, float)):
@@ -242,140 +264,9 @@ class OTXProvider(BaseProvider):
                 ev.append(f"asn={asn}")
             return ProviderResult(self.name, status, score, ev, url, latency, False)
         except Exception as e:
-            return ProviderResult(self.name, "INCONCLUSIVE", 0.0, [str(e)], url, None, False)
+            return ProviderResult(self.name, "INCONCLUSIVE", 0.0, [str(e)], url, latency if isinstance(latency, int) else None, False)
 
 
-class UrlscanProvider(BaseProvider):
-    name = "urlscan"
-    supported = {"url"}
-
-    def __init__(self, api_key: Optional[str]):
-        super().__init__(api_key)
-        import os
-
-        self.base = os.getenv("URLSCAN_BASE", "https://urlscan.io").rstrip("/")
-        self.timeout = float(os.getenv("URLSCAN_TIMEOUT", "10"))
-        self.retries = int(os.getenv("URLSCAN_RETRIES", "2"))
-        # Centralized feature flag in config
-        self.submit_enabled = config.URLSCAN_SUBMIT
-        self.mock = os.getenv("URLSCAN_MOCK", "0").strip() in ("1", "true", "yes")
-
-    def available(self) -> bool:
-        if self.mock:
-            return True
-        return bool(self.api_key)
-
-    async def _request_json(self, client: httpx.AsyncClient, method: str, url: str, headers: Dict[str, str], params: Optional[Dict[str, Any]] = None, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        attempt = 0
-        backoff = 0.75
-        last_exc: Optional[Exception] = None
-        while attempt <= self.retries:
-            t0 = now_utc()
-            try:
-                if method == "GET":
-                    r = await client.get(url, headers=headers, params=params)
-                else:
-                    r = await client.post(url, headers=headers, json=data)
-                if r.status_code == 429 or r.status_code >= 500:
-                    last_exc = Exception(f"http {r.status_code}")
-                else:
-                    try:
-                        return cast(Dict[str, Any], r.json())
-                    except Exception:
-                        raise Exception((r.text or "").strip()[:200] or "invalid json")
-            except (httpx.TimeoutException, httpx.RequestError) as e:
-                last_exc = e
-            except Exception as e:
-                last_exc = e
-            attempt += 1
-            await asyncio.sleep(min(6.0, backoff))
-            backoff *= 2
-        raise last_exc or Exception("request failed")
-
-    def _classify(self, tags: List[str], verdicts: Dict[str, Any]) -> Tuple[str, float]:
-        tg = [str(t).lower() for t in (tags or [])]
-        v = verdicts or {}
-        overall = str(v.get("overall") or "").lower()
-        malicious = bool(v.get("malicious"))
-        score = float(v.get("score", 0))
-        if malicious or overall == "malicious" or ("malicious" in tg):
-            return "MALICIOUS", max(80.0, score)
-        if overall in ("suspicious",) or ("phishing" in tg or "suspicious" in tg):
-            return "SUSPICIOUS", max(40.0, score)
-        if overall in ("benign", "clean") or ("benign" in tg or "clean" in tg):
-            return "CLEAN", min(10.0, score)
-        return "INCONCLUSIVE", score
-
-    async def query(self, client: httpx.AsyncClient, ioc: str, ioc_type: str, timeout: float) -> ProviderResult:
-        if not self.supports(ioc_type):
-            return ProviderResult(self.name, "INCONCLUSIVE", 0.0, [], None, None, False)
-        if not self.available():
-            return ProviderResult(self.name, "INCONCLUSIVE", 0.0, ["missing API key (set URLSCAN_API_KEY or enable URLSCAN_MOCK=1)"], None, None, False)
-        headers = {"Accept": "application/json"}
-        if not self.mock:
-            headers["API-Key"] = self.api_key or ""
-        search_url = f"{self.base}/api/v1/search/"
-        params = {"q": f"url:\"{ioc}\"", "size": 5}
-        try:
-            js = await self._request_json(client, "GET", search_url, headers, params=params)
-            results = (js or {}).get("results") or []
-            if results:
-                rec = results[0]
-                tags = rec.get("tags") or []
-                verdicts = rec.get("verdicts") or {}
-                status, score = self._classify(tags, verdicts)
-                link = rec.get("result") or rec.get("task", {}).get("reportURL") or rec.get("task", {}).get("url")
-                ev: List[str] = []
-                if tags:
-                    ev.append("tags=" + ",".join([str(t) for t in tags][:6]))
-                if isinstance(verdicts, dict) and verdicts:
-                    ev.append("verdicts=" + ",".join([f"{k}:{v}" for k, v in list(verdicts.items())[:5]]))
-                return ProviderResult(self.name, status, float(score), ev, link, None, False)
-        except Exception:
-            pass
-        if not self.submit_enabled and not self.mock:
-            return ProviderResult(self.name, "INCONCLUSIVE", 0.0, ["no prior scan"], None, None, False)
-        if self.mock:
-            ev = ["mock=1", "submitted=true"]
-            return ProviderResult(self.name, "SUSPICIOUS", 55.0, ev, "https://urlscan.io/result/mock", 1000, False)
-        try:
-            submit_url = f"{self.base}/api/v1/scan"
-            body = {"url": ioc, "visibility": "unlisted"}
-            sj = await self._request_json(client, "POST", submit_url, headers, data=body)
-            uuid = (sj or {}).get("uuid") or (sj or {}).get("scanid")
-            if not uuid:
-                return ProviderResult(self.name, "INCONCLUSIVE", 0.0, ["submit missing uuid"], None, None, False)
-            poll = f"{self.base}/api/v1/result/{uuid}"
-            delay = 2.0
-            total_wait = 0.0
-            jsr: Dict[str, Any] = {}
-            async with httpx.AsyncClient(timeout=timeout) as poll_client:
-                while total_wait < max(15.0, self.timeout):
-                    await asyncio.sleep(delay)
-                    total_wait += delay
-                    delay = min(15.0, delay * 1.8)
-                    try:
-                        jsr = await self._request_json(poll_client, "GET", poll, headers)
-                    except Exception:
-                        continue
-                    if str(jsr.get("status") or jsr.get("state") or "").lower() in ("done", "finished", "ready"):
-                        break
-            page = jsr.get("page") or {}
-            verdicts = jsr.get("verdicts") or {}
-            tags = jsr.get("tags") or []
-            link = jsr.get("result") or jsr.get("task", {}).get("reportURL")
-            status, score = self._classify(tags, verdicts)
-            ev2: List[str] = []
-            if tags:
-                ev2.append("tags=" + ",".join([str(t) for t in tags][:6]))
-            if isinstance(verdicts, dict) and verdicts:
-                ev2.append("verdicts=" + ",".join([f"{k}:{v}" for k, v in list(verdicts.items())[:5]]))
-            title = page.get("title")
-            if title:
-                ev2.append(f"title={title}")
-            return ProviderResult(self.name, status, float(score), ev2, link, None, False)
-        except Exception as e:
-            return ProviderResult(self.name, "INCONCLUSIVE", 0.0, [str(e)], None, None, False)
 
 
 class ThreatFoxProvider(BaseProvider):
@@ -453,6 +344,17 @@ async def fetch_with_cache(provider: BaseProvider, cache: Cache, client: httpx.A
     if use_cache and not refresh:
         cached = cache.get(provider.name, ioc, ttl)
         if cached is not None:
+            try:
+                get_logger().info(
+                    "provider=%s endpoint_kind=%s status_code=%s latency_ms=%s cache_hit=%s",
+                    provider.name,
+                    "cache",
+                    "cache",
+                    cached.get("latency_ms"),
+                    True,
+                )
+            except Exception:
+                pass
             return ProviderResult(
                 provider.name,
                 cached.get("status", "INCONCLUSIVE"),
@@ -464,7 +366,93 @@ async def fetch_with_cache(provider: BaseProvider, cache: Cache, client: httpx.A
             )
     res = await provider.query(client, ioc, ioc_type, timeout)
     cache.set(provider.name, ioc, ioc_type, res.to_dict())
+    try:
+        get_logger().info(
+            "provider=%s endpoint_kind=%s status_code=%s latency_ms=%s cache_hit=%s",
+            provider.name,
+            "network",
+            "n/a",
+            res.latency_ms,
+            False,
+        )
+    except Exception:
+        pass
     return res
+
+
+# Internal: HTTP GET with bounded retries/backoff and total budget cap
+class _HttpAttemptResult:
+    def __init__(self, response: httpx.Response, latency_ms: int, status_code: Optional[int], error: Optional[str]):
+        self.response = response
+        self.latency_ms = latency_ms
+        self.status_code = status_code
+        self.error = error
+
+
+async def _http_get_with_retries(
+    client: httpx.AsyncClient,
+    url: str,
+    headers: Optional[Dict[str, str]],
+    params: Optional[Dict[str, Any]],
+    timeout: float,
+    max_extra_retries: int = 2,
+) -> _HttpAttemptResult:
+    start = time.monotonic()
+    budget = max(timeout * 1.5, timeout + 0.5)
+    attempt = 0
+    backoff = 0.5
+    last_exc: Optional[BaseException] = None
+    last_resp: Optional[httpx.Response] = None
+    status_code: Optional[int] = None
+    latency_ms: int = 0
+    while True:
+        t0 = time.monotonic()
+        try:
+            r = await client.get(url, headers=headers or {}, params=params, timeout=timeout)
+            latency_ms = int((time.monotonic() - t0) * 1000)
+            last_resp = r
+            status_code = r.status_code
+            if r.status_code in (429, 502, 503, 504):
+                if attempt < max_extra_retries and (time.monotonic() - start) < budget:
+                    # sleep with jitter
+                    delay = backoff * (1 + random.uniform(-0.25, 0.25))
+                    delay = max(0.0, min(3.0, delay))
+                    # respect remaining budget before sleeping
+                    remaining = budget - (time.monotonic() - start)
+                    if remaining <= 0.1:
+                        break
+                    await asyncio.sleep(min(delay, max(0.0, remaining)))
+                    attempt += 1
+                    backoff *= 2
+                    continue
+            # success or non-retriable
+            break
+        except (httpx.TimeoutException, httpx.RequestError) as e:
+            latency_ms = int((time.monotonic() - t0) * 1000)
+            last_exc = e
+            status_code = None
+            if attempt < max_extra_retries and (time.monotonic() - start) < budget:
+                delay = backoff * (1 + random.uniform(-0.25, 0.25))
+                delay = max(0.0, min(3.0, delay))
+                remaining = budget - (time.monotonic() - start)
+                if remaining <= 0.1:
+                    break
+                await asyncio.sleep(min(delay, max(0.0, remaining)))
+                attempt += 1
+                backoff *= 2
+                continue
+            break
+        except BaseException as e:  # unexpected
+            latency_ms = int((time.monotonic() - t0) * 1000)
+            last_exc = e
+            break
+    # Prepare return
+    if last_resp is None:
+        # fabricate minimal response object for downstream code paths
+        req = httpx.Request("GET", url)
+        resp = httpx.Response(status_code=599, request=req)
+        return _HttpAttemptResult(resp, latency_ms, status_code, "timeout" if isinstance(last_exc, httpx.TimeoutException) else "error")
+    return _HttpAttemptResult(last_resp, latency_ms, status_code, None)
 
 
 async def enrich_one(ioc: str, providers: List[BaseProvider], cache: Cache, ttls: Dict[str, int], use_cache: bool, refresh: bool, timeout: float, concurrency: int, client: Optional[httpx.AsyncClient] = None, sem: Optional[asyncio.Semaphore] = None) -> AggregatedResult:

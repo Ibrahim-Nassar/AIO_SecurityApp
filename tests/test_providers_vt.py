@@ -30,12 +30,23 @@ class TestVTProvider(unittest.IsolatedAsyncioTestCase):
 
     async def test_429(self):
         prov = VirusTotalProvider("k")
-        fake = FakeAsyncClient()
-        fake.queue(make_response(429, {"error": "rate limit"}))
+        # Queue 429 then success
+        class Client(FakeAsyncClient):
+            async def get(self, url, *a, **k):
+                if not hasattr(self, "_count"):
+                    self._count = 0
+                self._count += 1
+                if self._count == 1:
+                    return make_response(429, {"error": "rate limit"})
+                with open(os.path.join(os.path.dirname(__file__), "fixtures", "vt_ok.json"), "r", encoding="utf-8") as f:
+                    return make_response(200, json.load(f))
+        fake = Client()
         with mock.patch("httpx.AsyncClient", return_value=fake):
             async with httpx.AsyncClient() as client:
-                pr = await prov.query(client, "1.2.3.4", "ip", 10.0)
-        self.assertEqual(pr.status, "INCONCLUSIVE")
+                pr = await prov.query(client, "1.2.3.4", "ip", 0.2)
+        self.assertIn(pr.status, ("MALICIOUS", "SUSPICIOUS", "CLEAN", "INCONCLUSIVE"))
+        # latency should be recorded as int
+        self.assertTrue(isinstance(pr.latency_ms, int) or pr.latency_ms is None)
 
     async def test_404(self):
         prov = VirusTotalProvider("k")

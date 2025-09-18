@@ -8,7 +8,6 @@ def test_settings_load_save(qapp, temp_cwd, env_file, qt_flush, monkeypatch):
     content = """VIRUSTOTAL_API_KEY=vt123
 ABUSEIPDB_API_KEY=ab123
 OTX_API_KEY=otx123
-URLSCAN_API_KEY=us123
 """
     env_file.write_text(content, encoding="utf-8")
     w = SettingsPage(lambda s: None)

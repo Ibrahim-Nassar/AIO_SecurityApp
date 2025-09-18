@@ -3,7 +3,7 @@ from __future__ import annotations
 # Compatibility shim: re-export defaults from core config
 from ioc_core.config import DEFAULT_TTLS, DEFAULT_PROVIDERS, DEFAULT_TIMEOUTS  # noqa: F401
 
-APP_TITLE = "IOC Checker (VT, AbuseIPDB, OTX, urlscan)"
+APP_TITLE = "IOC Checker (VT, AbuseIPDB, OTX, ThreatFox)"
 CACHE_DB = ".ioc_enricher_cache.sqlite"
 
 

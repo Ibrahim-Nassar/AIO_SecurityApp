@@ -27,6 +27,17 @@ class TestAbuseProvider(unittest.IsolatedAsyncioTestCase):
                 pr = await prov.query(client, "1.2.3.4", "ip", 10.0)
         self.assertIn(pr.status, ("MALICIOUS", "SUSPICIOUS", "CLEAN", "INCONCLUSIVE"))
 
+    async def test_timeout_then_fail(self):
+        prov = AbuseIPDBProvider("x")
+        class Client(FakeAsyncClient):
+            async def get(self, url, *a, **k):
+                raise httpx.TimeoutException("timeout")
+        fake = Client()
+        with mock.patch("httpx.AsyncClient", return_value=fake):
+            async with httpx.AsyncClient() as client:
+                pr = await prov.query(client, "1.2.3.4", "ip", 0.1)
+        self.assertEqual(pr.status, "INCONCLUSIVE")
+
     async def test_404(self):
         prov = AbuseIPDBProvider("x")
         fake = FakeAsyncClient()

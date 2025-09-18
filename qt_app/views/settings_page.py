@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 from qt_app.ui import SectionCard
 from pathlib import Path
 from dotenv import load_dotenv
+from ioc_core.config_env import resolve_env_path, load_env_file, save_env_kv
 
 
 ENV_KEYS = [
@@ -107,13 +108,19 @@ class SettingsPage(QWidget):
             self._edits[key] = edit
 
         card.body.addLayout(form)
+        # Active .env path display
+        self._env_path_label = QLabel("")
+        self._env_path_label.setProperty("muted", True)
+        card.body.addWidget(self._env_path_label)
         api_l.addWidget(card, 1)
         btn_row = QHBoxLayout()
         btn_row.addStretch(1)
-        self.btn_load = QPushButton("Load from .env")
+        self.btn_load = QPushButton("Reload .env")
         self.btn_save = QPushButton("Save to .env")
-        self.btn_load.setToolTip("Load API keys from your profile .env")
-        self.btn_save.setToolTip("Save API keys to your profile .env")
+        self.btn_save.setProperty("class", "PrimaryButton")
+        self.btn_load.setProperty("class", "SecondaryButton")
+        self.btn_load.setToolTip("Reload API keys from your profile .env")
+        self.btn_save.setToolTip("Save API keys to your profile .env path")
         btn_row.addWidget(self.btn_load)
         btn_row.addWidget(self.btn_save)
         api_l.addLayout(btn_row)
@@ -123,13 +130,14 @@ class SettingsPage(QWidget):
         self.btn_save.clicked.connect(self._on_save)
         # Populate fields on open using current env
         self._populate_from_env()
+        self._update_env_path_label()
 
     def _update_status(self, msg: str) -> None:
         self._status_cb(msg)
 
     def _on_load(self) -> None:
-        # Load from per-user env path; migrate from CWD if needed
-        env_path = _per_user_env_path()
+        # Load from centralized per-user env path; migrate from CWD if needed
+        env_path = resolve_env_path()
         user_env = Path(env_path)
         if not user_env.exists():
             cwd_env = Path(os.getcwd()) / ".env"
@@ -139,10 +147,11 @@ class SettingsPage(QWidget):
                     user_env.write_text(cwd_env.read_text(encoding="utf-8"), encoding="utf-8")
                 except Exception:
                     pass
+        loaded = False
         try:
-            load_dotenv(env_path, override=True)
+            loaded = load_env_file(env_path)
         except Exception:
-            pass
+            loaded = False
         data: Dict[str, str] = {}
         try:
             if os.path.exists(env_path):
@@ -158,15 +167,16 @@ class SettingsPage(QWidget):
             self._edits[key].setText(data.get(key, ""))
             if data.get(key, ""):
                 os.environ[key] = data.get(key, "")
-        self._update_status("Loaded .env")
+        self._update_env_path_label()
+        self._update_status("Reloaded .env" if loaded else "Failed to load .env")
         try:
             from qt_app.ui import Toast
-            Toast(self).show_toast(self, "Loaded keys from profile.")
+            Toast(self).show_toast(self, "Reloaded .env." if loaded else "Failed to load .env")
         except Exception:
             pass
 
     def _on_save(self) -> None:
-        env_path = _per_user_env_path()
+        env_path = resolve_env_path()
         existing: Dict[str, str] = {}
         try:
             if os.path.exists(env_path):
@@ -177,26 +187,25 @@ class SettingsPage(QWidget):
                             existing[k.strip()] = v.strip().rstrip("\n")
         except Exception:
             existing = {}
+        # Merge current UI values, allowing empty to clear
         for key, _ in ENV_KEYS:
             existing[key] = self._edits[key].text().strip()
         try:
-            Path(env_path).parent.mkdir(parents=True, exist_ok=True)
-            with open(env_path, "w", encoding="utf-8") as f:
-                for k, v in existing.items():
-                    f.write(f"{k}={v}\n")
+            save_env_kv(env_path, existing)
         except Exception as e:
             QMessageBox.critical(self, "Save .env", str(e))
             return
-        for key, _ in ENV_KEYS:
-            val = self._edits[key].text().strip()
-            if val:
-                os.environ[key] = val
-            else:
-                os.environ.pop(key, None)
-        self._update_status("Saved .env")
+        # Reload into process env and repopulate UI
+        try:
+            load_env_file(env_path)
+        except Exception:
+            pass
+        self._populate_from_env()
+        self._update_env_path_label()
+        self._update_status("Saved and reloaded.")
         try:
             from qt_app.ui import Toast
-            Toast(self).show_toast(self, "Saved keys to profile.")
+            Toast(self).show_toast(self, "Saved and reloaded.")
         except Exception:
             pass
 
@@ -206,3 +215,9 @@ class SettingsPage(QWidget):
                 self._edits[key].setText(os.getenv(key, ""))
         except Exception:
             pass
+
+    def _update_env_path_label(self) -> None:
+        try:
+            self._env_path_label.setText(f"Active .env: {resolve_env_path()}")
+        except Exception:
+            self._env_path_label.setText("Active .env: (unavailable)")
