@@ -16,6 +16,15 @@ from PySide6.QtWidgets import (
 	QApplication,
 )
 
+# Import design tokens
+from .theme import (
+	COLOR_BG_CARD, COLOR_BORDER, COLOR_SUCCESS, COLOR_WARNING, COLOR_ERROR,
+	COLOR_SHADOW, RADIUS_MD, SPACE_2, SPACE_3, SPACE_4,
+	COLOR_TOAST_INFO_BG, COLOR_TOAST_INFO_BORDER, COLOR_TOAST_SUCCESS_BORDER,
+	COLOR_TOAST_WARNING_BORDER, COLOR_TOAST_ERROR_BORDER,
+	COLOR_OVERLAY_BG, COLOR_OVERLAY_TEXT
+)
+
 
 class BusyOverlay(QWidget):
 	"""Semi-transparent overlay with spinner and label over a target widget.
@@ -36,9 +45,9 @@ class BusyOverlay(QWidget):
 		self._angle = 0
 		self._timer = QTimer(self)
 		self._timer.timeout.connect(self._tick)
-		# Cleaner backdrop (slightly lighter alpha)
-		self._bg = QColor(0, 0, 0, 110)
-		self._spinner_color = QColor(255, 255, 255)
+		# Cleaner backdrop using design tokens
+		self._bg = COLOR_OVERLAY_BG
+		self._spinner_color = COLOR_OVERLAY_TEXT
 		self._label = QLabel("Working…", self)
 		self._label.setStyleSheet("color: white; font-weight: 600;")
 		self._label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -55,7 +64,7 @@ class BusyOverlay(QWidget):
 			self.setGeometry(target.rect())
 			self._text = text or "Working…"
 			self._label.setText(self._text)
-			self._label.setGeometry(0, self.height() // 2 + 20, self.width(), 24)
+			self._label.setGeometry(0, self.height() // 2 + SPACE_4 + SPACE_1, self.width(), SPACE_4 + SPACE_2)
 			# Track parent geometry changes via eventFilter
 			try:
 				if isinstance(target, QWidget):
@@ -91,7 +100,7 @@ class BusyOverlay(QWidget):
 			if watched is self.parent() and isinstance(watched, QWidget):
 				if event.type() in (QEvent.Type.Resize, QEvent.Type.Move, QEvent.Type.Show, QEvent.Type.Hide):
 					self.setGeometry(watched.rect())
-					self._label.setGeometry(0, self.height() // 2 + 20, self.width(), 24)
+					self._label.setGeometry(0, self.height() // 2 + SPACE_4 + SPACE_1, self.width(), SPACE_4 + SPACE_2)
 		except Exception:
 			pass
 		return False
@@ -101,7 +110,7 @@ class BusyOverlay(QWidget):
 			p = self.parent()
 			if isinstance(p, QWidget):
 				self.setGeometry(p.rect())
-				self._label.setGeometry(0, self.height() // 2 + 20, self.width(), 24)
+				self._label.setGeometry(0, self.height() // 2 + SPACE_4 + SPACE_1, self.width(), SPACE_4 + SPACE_2)
 		except Exception:
 			pass
 		return super().resizeEvent(e)
@@ -118,7 +127,7 @@ class BusyOverlay(QWidget):
 		painter.setPen(pen)
 		start = self._angle * 16
 		span = 120 * 16
-		painter.drawArc(cx - r, cy - r - 12, r * 2, r * 2, start, span)
+		painter.drawArc(cx - r, cy - r - SPACE_3, r * 2, r * 2, start, span)
 		painter.end()
 
 
@@ -134,24 +143,21 @@ class Toast(QWidget):
 			Qt.WindowType.ToolTip | Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
 		)
 		self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-		self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
-		self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+		# REMOVED: WA_NoSystemBackground and WA_TranslucentBackground to allow solid backgrounds
 		self.setObjectName("Toast")
 		self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)  # Allow focus for Esc key
 		lay = QVBoxLayout(self)
-		lay.setContentsMargins(12, 8, 12, 8)
+		lay.setContentsMargins(SPACE_3, SPACE_2, SPACE_3, SPACE_2)
 		self._label = QLabel("")
-		self._label.setStyleSheet("color: #FFFFFF; font-weight: 600;")
+		self._label.setStyleSheet("color: #FFFFFF; font-weight: 600; background: transparent;")
 		lay.addWidget(self._label)
-		# Background and border default (info)
-		self._bg = QColor(31, 41, 55)  # #1F2937
-		self._border = QColor(17, 24, 39)  # #111827
+		# Background and border default (info) - using design tokens
+		self._bg = COLOR_BG_CARD
+		self._border = COLOR_BORDER
 		self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-		self._opacity = QGraphicsOpacityEffect(self)
-		self._opacity.setOpacity(0.0)
-		self.setGraphicsEffect(self._opacity)
-		self._anim = QPropertyAnimation(self._opacity, b"opacity", self)
-		self._anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
+		# Set a solid background color to ensure proper rendering
+		self.setAutoFillBackground(True)
+		# No opacity effects - toast will appear instantly and fade by simple hide/show
 
 	def keyPressEvent(self, event):  # noqa: N802
 		"""Handle Esc key to dismiss toast."""
@@ -163,35 +169,38 @@ class Toast(QWidget):
 	def paintEvent(self, e):  # noqa: N802
 		painter = QPainter(self)
 		painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-		# subtle shadow
-		shadow_path = QPainterPath()
+		
 		rect = self.rect()
-		radius = 6
-		shadow_rect = rect.adjusted(2, 3, 2, 3)
-		shadow_path.addRoundedRect(shadow_rect, radius, radius)
-		painter.fillPath(shadow_path, QColor(0, 0, 0, 40))
-		# card
-		painter.setBrush(self._bg)
-		painter.setPen(QPen(self._border, 1))
-		card_rect = rect.adjusted(0, 0, -1, -1)
-		painter.drawRoundedRect(card_rect, radius, radius)
+		radius = RADIUS_MD  # Use design token
+		
+		# Fill entire background first to ensure no white showing through
+		painter.fillRect(rect, self._bg)
+		
+		# Solid opaque background - no transparency
+		solid_bg = QColor(self._bg)
+		solid_bg.setAlpha(255)  # Force fully opaque
+		painter.setBrush(solid_bg)
+		painter.setPen(QPen(self._border, 2))  # Thicker border for better visibility
+		painter.drawRoundedRect(rect, radius, radius)
 		painter.end()
 
 	def _set_kind(self, kind: str) -> None:
-		"""Set toast colors based on kind."""
+		"""Set toast colors based on kind using design tokens."""
 		kind = (kind or "info").lower()
 		if kind == "success":
-			self._bg = QColor(16, 138, 72)  # #108A48
-			self._border = QColor(10, 95, 50)  # #0A5F32
+			self._bg = COLOR_SUCCESS
+			self._border = COLOR_TOAST_SUCCESS_BORDER
 		elif kind == "warn" or kind == "warning":
-			self._bg = QColor(194, 120, 3)  # #C27803
-			self._border = QColor(145, 90, 3)  # #915A03
+			self._bg = COLOR_WARNING
+			self._border = COLOR_TOAST_WARNING_BORDER
 		elif kind == "error":
-			self._bg = QColor(178, 34, 34)  # #B22222
-			self._border = QColor(120, 20, 20)  # #781414
+			self._bg = COLOR_ERROR
+			self._border = COLOR_TOAST_ERROR_BORDER
 		else:  # info
-			self._bg = QColor(31, 41, 55)  # #1F2937
-			self._border = QColor(17, 24, 39)  # #111827
+			self._bg = COLOR_TOAST_INFO_BG
+			self._border = COLOR_TOAST_INFO_BORDER
+		# Force repaint with new colors
+		self.update()
 
 	def _show(self, parent: QWidget, text: str, kind: str = "info", msec: int = 2000) -> None:
 		"""Internal method to show the toast."""
@@ -214,14 +223,7 @@ class Toast(QWidget):
 		super().show()
 		self.raise_()
 		self.setFocus()  # Allow Esc key to work
-		try:
-			self._anim.stop()
-		except Exception:
-			pass
-		self._anim.setDuration(150)
-		self._anim.setStartValue(0.0)
-		self._anim.setEndValue(1.0)
-		self._anim.start()
+		# Show immediately with full opacity - no fade animation
 		QTimer.singleShot(msec, self._fade_out)
 
 	def _find_main_window(self, widget: QWidget) -> Optional[QWidget]:
@@ -234,20 +236,11 @@ class Toast(QWidget):
 		return None
 
 	def _fade_out(self) -> None:
+		# Hide immediately - no fade animation
 		try:
-			self._anim.stop()
+			self.hide()
 		except Exception:
 			pass
-		self._anim.setDuration(250)
-		self._anim.setStartValue(1.0)
-		self._anim.setEndValue(0.0)
-		self._anim.start()
-		def _cleanup() -> None:
-			try:
-				self.hide()
-			except Exception:
-				pass
-		QTimer.singleShot(self._anim.duration(), _cleanup)
 
 
 class ToastManager(QObject):

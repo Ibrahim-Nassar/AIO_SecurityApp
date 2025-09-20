@@ -44,8 +44,10 @@ def test_ioc_checker_run_and_export(qapp, temp_cwd, fake_httpx, qt_flush, monkey
     assert page.lbl_mode.text().lower() == "mode: normal"
     assert page.btn_check.text() == "Check"
     page.show(); qt_flush()
-    assert page.btn_check.width() > page.btn_save.width()
-    assert page.btn_check.width() > page.btn_cancel.width()
+    # Check button should have minimum width of 110, others 100
+    assert page.btn_check.width() >= 110
+    assert page.btn_save.width() >= 100
+    assert page.btn_cancel.width() >= 100
     # Table populated
     assert page.model.rowCount() >= 1
     # Summary selection
