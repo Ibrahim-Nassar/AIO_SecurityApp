@@ -212,10 +212,10 @@ class SettingsPage(QWidget):
             if v:
                 os.environ[key] = v
         self._update_env_path_label()
-        self._update_status("Reloaded .env" if loaded else "Failed to load .env")
         try:
-            from qt_app.ui import Toast
-            Toast(self).show_toast(self, "Reloaded .env." if loaded else "Failed to load .env")
+            from qt_app.ui import ToastManager
+            kind = "success" if loaded else "error"
+            ToastManager.instance(self).show("Reloaded .env." if loaded else "Failed to load .env", kind)
         except Exception:
             pass
 
@@ -250,10 +250,9 @@ class SettingsPage(QWidget):
             pass
         self._populate_from_env()
         self._update_env_path_label()
-        self._update_status("Saved and reloaded.")
         try:
-            from qt_app.ui import Toast
-            Toast(self).show_toast(self, "Saved and reloaded.")
+            from qt_app.ui import ToastManager
+            ToastManager.instance(self).show("Saved and reloaded.", "success")
         except Exception:
             pass
 

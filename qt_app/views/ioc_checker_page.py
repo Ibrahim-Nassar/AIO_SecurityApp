@@ -33,7 +33,7 @@ from ioc_core.cache import Cache as CoreCache
 from ioc_core import services as core_services
 from ioc_core.export import export_results_csv
 from qt_app.workers import AsyncTaskWorker
-from qt_app.ui import BusyOverlay, Toast
+from qt_app.ui import BusyOverlay, ToastManager
 from ioc_core.logger import get_logger
 
 
@@ -189,9 +189,8 @@ class IocCheckerPage(QWidget):
         self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self._on_table_context)
 
-        # Busy overlay and toast
+        # Busy overlay
         self._overlay = BusyOverlay(self)
-        self._toast = Toast(self)
 
         # Keyboard shortcuts
         self._sc_check = QAction(self)
@@ -452,18 +451,15 @@ class IocCheckerPage(QWidget):
     def _on_check(self) -> None:
         iocs = self._read_inputs(self.txt_in.toPlainText())
         if not iocs:
-            # Unified centered toast
-            self._update_status("Enter at least one IOC.")
             try:
-                self._toast.show_toast(self, "Enter at least one IOC.")
+                ToastManager.instance(self).show("Enter at least one IOC.", "error")
             except Exception:
                 pass
             return
         providers = self._selected_providers()
         if not providers:
-            self._update_status("Select at least one provider.")
             try:
-                self._toast.show_toast(self, "Select at least one provider.", kind="warn")
+                ToastManager.instance(self).show("Select at least one provider.", "warn")
             except Exception:
                 pass
             return
@@ -478,9 +474,8 @@ class IocCheckerPage(QWidget):
             except Exception:
                 pass
         if missing and (len(missing) == len(providers)):
-            self._update_status("Missing API keys for selected providers.")
             try:
-                self._toast.show_toast(self, "Missing API keys for selected providers.", kind="error")
+                ToastManager.instance(self).show("Missing API keys for selected providers.", "error")
             except Exception:
                 pass
             return
@@ -591,9 +586,8 @@ class IocCheckerPage(QWidget):
             pass
 
     def _on_error(self, msg: str) -> None:
-        self._update_status(msg or "Error")
         try:
-            self._toast.show_toast(self, msg or "Error")
+            ToastManager.instance(self).show(msg or "Error", "error")
         except Exception:
             pass
 
@@ -610,7 +604,7 @@ class IocCheckerPage(QWidget):
             # If cancel flag was set and no results arrived
             if hasattr(self, "_cancel_flag") and self._cancel_flag.get("c") and not self._last_results:
                 try:
-                    self._toast.show_toast(self, "Cancelled.")
+                    ToastManager.instance(self).show("Cancelled.", "info")
                 except Exception:
                     pass
         except Exception:
@@ -644,7 +638,7 @@ class IocCheckerPage(QWidget):
         cur.movePosition(QTextCursor.MoveOperation.End)
         self.txt_summary.setTextCursor(cur)
         try:
-            self._toast.show_toast(self, "Summary copied.")
+            ToastManager.instance(self).show("Summary copied.", "success")
         except Exception:
             pass
 

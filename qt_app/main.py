@@ -4,7 +4,7 @@ from PySide6.QtCore import QResource
 from PySide6.QtWidgets import QApplication
 
 from qt_app.views.main_window import MainWindow
-from qt_app.ui import apply_app_styles, Toast
+from qt_app.ui import apply_app_styles, ToastManager
 from ioc_core import setup_logging_redaction
 from ioc_core.logger import setup_diagnostics_logger
 from qt_app.ui.theme import FONT_SIZE_BASE
@@ -50,9 +50,9 @@ def main() -> None:
         loaded = load_env_file(str(env_path))
         try:
             if loaded:
-                Toast(w).show_toast(w, "Environment loaded.")
+                ToastManager.instance(w).show("Environment loaded.", "success")
             else:
-                Toast(w).show_toast(w, "Failed to load environment.")
+                ToastManager.instance(w).show("Failed to load environment.", "error")
         except Exception:
             pass
     except Exception:

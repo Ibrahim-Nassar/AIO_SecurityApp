@@ -1,10 +1,11 @@
-# CHANGELOG: Add reusable UI widgets (BusyOverlay, Toast, SectionCard)
+# CHANGELOG: Add reusable UI widgets (BusyOverlay, Toast, SectionCard) + ToastManager singleton
 from __future__ import annotations
 
-from typing import Optional
+import time
+from typing import Optional, Literal
 
 from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QTimer, QPoint, QObject, QEvent
-from PySide6.QtGui import QColor, QPainter, QPen, QPainterPath
+from PySide6.QtGui import QColor, QPainter, QPen, QPainterPath, QKeySequence
 from PySide6.QtWidgets import (
 	QWidget,
 	QVBoxLayout,
@@ -12,6 +13,7 @@ from PySide6.QtWidgets import (
 	QFrame,
 	QSizePolicy,
 	QGraphicsOpacityEffect,
+	QApplication,
 )
 
 
@@ -122,11 +124,9 @@ class BusyOverlay(QWidget):
 
 class Toast(QWidget):
 	"""Small, fading status notification widget.
-
-	Call show_message(parent, text) to display.
+	
+	NOTE: Do not instantiate directly. Use ToastManager.instance(parent).show() instead.
 	"""
-
-	_active_messages: set[str] = set()
 
 	def __init__(self, parent: Optional[QWidget] = None) -> None:
 		super().__init__(parent)
@@ -137,21 +137,28 @@ class Toast(QWidget):
 		self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
 		self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 		self.setObjectName("Toast")
+		self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)  # Allow focus for Esc key
 		lay = QVBoxLayout(self)
 		lay.setContentsMargins(12, 8, 12, 8)
 		self._label = QLabel("")
 		self._label.setStyleSheet("color: #FFFFFF; font-weight: 600;")
 		lay.addWidget(self._label)
 		# Background and border default (info)
-		self._bg = QColor(31, 41, 55)
-		self._border = QColor(17, 24, 39)
+		self._bg = QColor(31, 41, 55)  # #1F2937
+		self._border = QColor(17, 24, 39)  # #111827
 		self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 		self._opacity = QGraphicsOpacityEffect(self)
 		self._opacity.setOpacity(0.0)
 		self.setGraphicsEffect(self._opacity)
 		self._anim = QPropertyAnimation(self._opacity, b"opacity", self)
 		self._anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
-		self._current_key: Optional[str] = None
+
+	def keyPressEvent(self, event):  # noqa: N802
+		"""Handle Esc key to dismiss toast."""
+		if event.key() == Qt.Key.Key_Escape:
+			self._fade_out()
+		else:
+			super().keyPressEvent(event)
 
 	def paintEvent(self, e):  # noqa: N802
 		painter = QPainter(self)
@@ -170,24 +177,43 @@ class Toast(QWidget):
 		painter.drawRoundedRect(card_rect, radius, radius)
 		painter.end()
 
-	def show_message(self, parent: QWidget, text: str, timeout_ms: int = 2200) -> None:
-		# deduplicate by text
-		key = (text or "").strip().lower()
-		if key and key in Toast._active_messages:
-			return
-		self._current_key = key or None
-		if self._current_key:
-			Toast._active_messages.add(self._current_key)
+	def _set_kind(self, kind: str) -> None:
+		"""Set toast colors based on kind."""
+		kind = (kind or "info").lower()
+		if kind == "success":
+			self._bg = QColor(16, 138, 72)  # #108A48
+			self._border = QColor(10, 95, 50)  # #0A5F32
+		elif kind == "warn" or kind == "warning":
+			self._bg = QColor(194, 120, 3)  # #C27803
+			self._border = QColor(145, 90, 3)  # #915A03
+		elif kind == "error":
+			self._bg = QColor(178, 34, 34)  # #B22222
+			self._border = QColor(120, 20, 20)  # #781414
+		else:  # info
+			self._bg = QColor(31, 41, 55)  # #1F2937
+			self._border = QColor(17, 24, 39)  # #111827
+
+	def _show(self, parent: QWidget, text: str, kind: str = "info", msec: int = 2000) -> None:
+		"""Internal method to show the toast."""
+		self._set_kind(kind)
 		self._label.setText(text)
 		# Size to content
 		self.adjustSize()
-		# Position center of the parent
-		gp = parent.mapToGlobal(QPoint(0, 0))
-		x = gp.x() + int((parent.width() - self.width()) / 2)
-		y = gp.y() + int((parent.height() - self.height()) / 2)
+		# Position center of the main window (not just the immediate parent)
+		main_window = self._find_main_window(parent)
+		if main_window:
+			gp = main_window.mapToGlobal(QPoint(0, 0))
+			x = gp.x() + int((main_window.width() - self.width()) / 2)
+			y = gp.y() + int((main_window.height() - self.height()) / 2)
+		else:
+			# Fallback to parent centering
+			gp = parent.mapToGlobal(QPoint(0, 0))
+			x = gp.x() + int((parent.width() - self.width()) / 2)
+			y = gp.y() + int((parent.height() - self.height()) / 2)
 		self.move(x, y)
 		super().show()
 		self.raise_()
+		self.setFocus()  # Allow Esc key to work
 		try:
 			self._anim.stop()
 		except Exception:
@@ -196,30 +222,16 @@ class Toast(QWidget):
 		self._anim.setStartValue(0.0)
 		self._anim.setEndValue(1.0)
 		self._anim.start()
-		QTimer.singleShot(timeout_ms, self._fade_out)
+		QTimer.singleShot(msec, self._fade_out)
 
-	# New API alias matching spec
-	def show_toast(self, parent: QWidget, text: str, kind: str = "info", msec: int = 2200) -> None:
-		# Variants: info/success/warn/error
-		kind = (kind or "info").lower()
-		if kind == "success":
-			self._bg = QColor(16, 138, 72)
-			self._border = QColor(10, 95, 50)
-		elif kind == "warn" or kind == "warning":
-			self._bg = QColor(194, 120, 3)
-			self._border = QColor(145, 90, 3)
-		elif kind == "error":
-			self._bg = QColor(178, 34, 34)
-			self._border = QColor(120, 20, 20)
-		else:
-			self._bg = QColor(31, 41, 55)
-			self._border = QColor(17, 24, 39)
-		# Ensure readable text color
-		self._label.setStyleSheet("color: #FFFFFF; font-weight: 600;")
-		try:
-			self.show_message(parent, text, msec)
-		except Exception:
-			pass
+	def _find_main_window(self, widget: QWidget) -> Optional[QWidget]:
+		"""Find the top-level main window."""
+		current = widget
+		while current is not None:
+			if current.isWindow() and hasattr(current, 'setStatusBar'):
+				return current
+			current = current.parent()
+		return None
 
 	def _fade_out(self) -> None:
 		try:
@@ -233,14 +245,94 @@ class Toast(QWidget):
 		def _cleanup() -> None:
 			try:
 				self.hide()
-				# allow same message again
-				if self._current_key and self._current_key in Toast._active_messages:
-					Toast._active_messages.discard(self._current_key)
-				self._current_key = None
-				self.deleteLater()
 			except Exception:
 				pass
 		QTimer.singleShot(self._anim.duration(), _cleanup)
+
+
+class ToastManager(QObject):
+	"""Singleton manager for displaying centered toasts.
+	
+	Usage:
+	  ToastManager.instance(parent_widget).show("Message", "success", 3000)
+	"""
+	
+	_instances: dict[QWidget, 'ToastManager'] = {}
+	
+	def __init__(self, main_window: QWidget) -> None:
+		super().__init__(main_window)
+		self._main_window = main_window
+		self._toast: Optional[Toast] = None
+		self._last_text = ""
+		self._last_kind = ""
+		self._last_timestamp = 0.0
+		
+		# Install event filter on main window for re-positioning
+		main_window.installEventFilter(self)
+	
+	@classmethod
+	def instance(cls, parent: QWidget) -> 'ToastManager':
+		"""Get or create ToastManager instance for the main window."""
+		# Find the main window
+		main_window = cls._find_main_window(parent)
+		if main_window is None:
+			main_window = parent
+		
+		if main_window not in cls._instances:
+			cls._instances[main_window] = cls(main_window)
+		return cls._instances[main_window]
+	
+	@staticmethod
+	def _find_main_window(widget: QWidget) -> Optional[QWidget]:
+		"""Find the top-level main window."""
+		current = widget
+		while current is not None:
+			if current.isWindow() and hasattr(current, 'setStatusBar'):
+				return current
+			current = current.parent()
+		return None
+	
+	def show(self, text: str, kind: Literal["info", "success", "warn", "error"] = "info", msec: int = 2000) -> None:
+		"""Show a toast message. Coalesces identical messages within 2 seconds."""
+		text = (text or "").strip()
+		if not text:
+			return
+		
+		# Coalesce identical messages within 2 seconds
+		current_time = time.time()
+		if (text.lower() == self._last_text.lower() and 
+		    kind == self._last_kind and 
+		    current_time - self._last_timestamp < 2.0):
+			return
+		
+		self._last_text = text
+		self._last_kind = kind
+		self._last_timestamp = current_time
+		
+		# Hide existing toast if showing
+		if self._toast and self._toast.isVisible():
+			self._toast.hide()
+		
+		# Create or reuse toast
+		if not self._toast:
+			self._toast = Toast(self._main_window)
+		
+		# Show the toast
+		self._toast._show(self._main_window, text, kind, msec)
+	
+	def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+		"""Re-center toast when main window moves or resizes."""
+		if watched is self._main_window and self._toast and self._toast.isVisible():
+			if event.type() in (QEvent.Type.Resize, QEvent.Type.Move, QEvent.Type.Show):
+				# Re-center the toast
+				try:
+					gp = self._main_window.mapToGlobal(QPoint(0, 0))
+					x = gp.x() + int((self._main_window.width() - self._toast.width()) / 2)
+					y = gp.y() + int((self._main_window.height() - self._toast.height()) / 2)
+					self._toast.move(x, y)
+				except Exception:
+					pass
+		return False
 
 
 class SectionCard(QFrame):

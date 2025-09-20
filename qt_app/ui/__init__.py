@@ -5,14 +5,18 @@ from . import widgets as _widgets
 
 # Re-export commonly used widgets for convenience
 BusyOverlay = _widgets.BusyOverlay
-Toast = _widgets.Toast
+ToastManager = _widgets.ToastManager
 SectionCard = _widgets.SectionCard
+
+# Legacy Toast export - deprecated, use ToastManager instead
+Toast = _widgets.Toast
 
 __all__ = [
     "apply_app_styles",
     "SPACING",
     "RADIUS",
     "BusyOverlay",
-    "Toast",
+    "ToastManager",
     "SectionCard",
+    "Toast",  # deprecated
 ] 

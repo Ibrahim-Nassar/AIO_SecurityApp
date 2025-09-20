@@ -20,7 +20,7 @@ from ioc_core import config as core_config
 from ioc_core.models import classify_ioc
 from ioc_core.cache import Cache as CoreCache
 from qt_app.workers import AsyncTaskWorker
-from qt_app.ui import BusyOverlay, Toast
+from qt_app.ui import BusyOverlay, ToastManager
 
 
 class SandboxPage(QWidget):
@@ -28,7 +28,6 @@ class SandboxPage(QWidget):
         super().__init__(parent)
         self._status_cb: Callable[[str], None] = status_cb
         self._overlay = BusyOverlay(self)
-        self._toast = Toast(self)
         self._worker: Optional[AsyncTaskWorker] = None
 
         root = QVBoxLayout(self)
@@ -93,7 +92,7 @@ class SandboxPage(QWidget):
         if not url:
             self._update_status("Enter a URL to scan.")
             try:
-                self._toast.show_toast(self, "Enter a URL to scan.")
+                ToastManager.instance(self).show("Enter a URL to scan.", "error")
             except Exception:
                 pass
             return
@@ -101,7 +100,7 @@ class SandboxPage(QWidget):
         if not valid or t != "url":
             self._update_status("Input is not a valid URL.")
             try:
-                self._toast.show_toast(self, "Input is not a valid URL.", kind="warn")
+                ToastManager.instance(self).show("Input is not a valid URL.", "warn")
             except Exception:
                 pass
             return
@@ -109,7 +108,7 @@ class SandboxPage(QWidget):
         # Sandbox disabled (no Urlscan)
         self._update_status("Sandbox disabled (no Urlscan).")
         try:
-            self._toast.show_toast(self, "Sandbox disabled", kind="info")
+            ToastManager.instance(self).show("Sandbox disabled", "info")
         except Exception:
             pass
         return
@@ -174,7 +173,7 @@ class SandboxPage(QWidget):
         # Urlscan data removed
         self.txt_out.setPlainText("\n".join(lines))
         try:
-            self._toast.show_toast(self, "Scan complete.", kind="success")
+            ToastManager.instance(self).show("Scan complete.", "success")
         except Exception:
             pass
 
