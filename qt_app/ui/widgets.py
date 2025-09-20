@@ -126,6 +126,8 @@ class Toast(QWidget):
 	Call show_message(parent, text) to display.
 	"""
 
+	_active_messages: set[str] = set()
+
 	def __init__(self, parent: Optional[QWidget] = None) -> None:
 		super().__init__(parent)
 		self.setWindowFlags(
@@ -149,6 +151,7 @@ class Toast(QWidget):
 		self.setGraphicsEffect(self._opacity)
 		self._anim = QPropertyAnimation(self._opacity, b"opacity", self)
 		self._anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
+		self._current_key: Optional[str] = None
 
 	def paintEvent(self, e):  # noqa: N802
 		painter = QPainter(self)
@@ -167,14 +170,21 @@ class Toast(QWidget):
 		painter.drawRoundedRect(card_rect, radius, radius)
 		painter.end()
 
-	def show_message(self, parent: QWidget, text: str, timeout_ms: int = 2500) -> None:
+	def show_message(self, parent: QWidget, text: str, timeout_ms: int = 2200) -> None:
+		# deduplicate by text
+		key = (text or "").strip().lower()
+		if key and key in Toast._active_messages:
+			return
+		self._current_key = key or None
+		if self._current_key:
+			Toast._active_messages.add(self._current_key)
 		self._label.setText(text)
 		# Size to content
 		self.adjustSize()
-		# Position bottom-right with margin (20 px)
+		# Position center of the parent
 		gp = parent.mapToGlobal(QPoint(0, 0))
-		x = gp.x() + parent.width() - self.width() - 20
-		y = gp.y() + parent.height() - self.height() - 20
+		x = gp.x() + int((parent.width() - self.width()) / 2)
+		y = gp.y() + int((parent.height() - self.height()) / 2)
 		self.move(x, y)
 		super().show()
 		self.raise_()
@@ -189,7 +199,7 @@ class Toast(QWidget):
 		QTimer.singleShot(timeout_ms, self._fade_out)
 
 	# New API alias matching spec
-	def show_toast(self, parent: QWidget, text: str, kind: str = "info", msec: int = 1800) -> None:
+	def show_toast(self, parent: QWidget, text: str, kind: str = "info", msec: int = 2200) -> None:
 		# Variants: info/success/warn/error
 		kind = (kind or "info").lower()
 		if kind == "success":
@@ -223,6 +233,10 @@ class Toast(QWidget):
 		def _cleanup() -> None:
 			try:
 				self.hide()
+				# allow same message again
+				if self._current_key and self._current_key in Toast._active_messages:
+					Toast._active_messages.discard(self._current_key)
+				self._current_key = None
 				self.deleteLater()
 			except Exception:
 				pass

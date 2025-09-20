@@ -23,7 +23,6 @@ from PySide6.QtWidgets import (
     QTableView,
     QFrame,
     QFileDialog,
-    QMessageBox,
     QSplitter,
     QHeaderView,
     QMenu,
@@ -119,6 +118,8 @@ class IocCheckerPage(QWidget):
         table_container = QVBoxLayout()
         table_wrap = QWidget()
         table_wrap.setLayout(table_container)
+        table_container.setContentsMargins(0, 0, 0, 0)
+        table_container.setSpacing(8)
 
         # Divider look implicitly via table frame
         self.model = QStandardItemModel(0, 1, self)
@@ -135,7 +136,7 @@ class IocCheckerPage(QWidget):
         self.table.setAccessibleName("IOC Results Table")
         table_container.addWidget(self.table, 1)
 
-        # Empty state label
+        # Empty state label (kept for UX but not used for transient feedback)
         self._empty_label = QLabel("No results yet—enter IOCs and press Check.")
         self._empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._empty_label.setProperty("muted", True)
@@ -171,6 +172,8 @@ class IocCheckerPage(QWidget):
         main_split = QSplitter(Qt.Orientation.Horizontal)
         left_wrap = QWidget()
         left_wrap.setLayout(left)
+        left.setContentsMargins(0, 0, 0, 0)
+        left.setSpacing(8)
         main_split.addWidget(left_wrap)
         main_split.addWidget(right_split)
         main_split.setStretchFactor(0, 0)
@@ -242,6 +245,7 @@ class IocCheckerPage(QWidget):
                 pass
 
     def _update_status(self, text: str) -> None:
+        # Unify feedback via toast system; still invoke callback for tests/diagnostics
         self._status_cb(text)
 
     def _refresh_empty_state(self) -> None:
@@ -448,7 +452,7 @@ class IocCheckerPage(QWidget):
     def _on_check(self) -> None:
         iocs = self._read_inputs(self.txt_in.toPlainText())
         if not iocs:
-            # inline feedback via status & toast; keep tests ok (no blocking msgbox)
+            # Unified centered toast
             self._update_status("Enter at least one IOC.")
             try:
                 self._toast.show_toast(self, "Enter at least one IOC.")
@@ -457,7 +461,11 @@ class IocCheckerPage(QWidget):
             return
         providers = self._selected_providers()
         if not providers:
-            QMessageBox.warning(self, "No providers", "Select at least one provider.")
+            self._update_status("Select at least one provider.")
+            try:
+                self._toast.show_toast(self, "Select at least one provider.", kind="warn")
+            except Exception:
+                pass
             return
         # API key validation: if all selected need keys and none configured, block with error
         missing: List[str] = []
@@ -470,7 +478,11 @@ class IocCheckerPage(QWidget):
             except Exception:
                 pass
         if missing and (len(missing) == len(providers)):
-            QMessageBox.critical(self, "Missing API keys", f"No API keys configured for: {', '.join(missing)}. Set keys in Settings.")
+            self._update_status("Missing API keys for selected providers.")
+            try:
+                self._toast.show_toast(self, "Missing API keys for selected providers.", kind="error")
+            except Exception:
+                pass
             return
         use_cache, refresh, timeout = core_config.resolve_mode("normal")
         # bypass cache removed

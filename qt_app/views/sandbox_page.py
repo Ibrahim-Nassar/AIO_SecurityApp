@@ -59,8 +59,9 @@ class SandboxPage(QWidget):
         btns.addStretch(1)
         root.addLayout(btns)
 
+        # Passive status text removed from UX; keep hidden label for layout consistency if needed
         self.lbl_status = QLabel("")
-        self.lbl_status.setProperty("muted", True)
+        self.lbl_status.setVisible(False)
         root.addWidget(self.lbl_status)
 
         self.txt_out = QPlainTextEdit()
@@ -73,8 +74,8 @@ class SandboxPage(QWidget):
         self.btn_cancel.clicked.connect(self._on_cancel)
 
     def _update_status(self, msg: str) -> None:
+        # Route user feedback through toast; still emit callback for diagnostics/tests
         self._status_cb(msg)
-        self.lbl_status.setText(msg)
 
     def _set_running(self, running: bool) -> None:
         self.btn_scan.setEnabled(not running)
@@ -100,7 +101,7 @@ class SandboxPage(QWidget):
         if not valid or t != "url":
             self._update_status("Input is not a valid URL.")
             try:
-                self._toast.show_toast(self, "Input is not a valid URL.")
+                self._toast.show_toast(self, "Input is not a valid URL.", kind="warn")
             except Exception:
                 pass
             return
@@ -108,7 +109,7 @@ class SandboxPage(QWidget):
         # Sandbox disabled (no Urlscan)
         self._update_status("Sandbox disabled (no Urlscan).")
         try:
-            self._toast.show_toast(self, "Sandbox disabled")
+            self._toast.show_toast(self, "Sandbox disabled", kind="info")
         except Exception:
             pass
         return
@@ -173,7 +174,7 @@ class SandboxPage(QWidget):
         # Urlscan data removed
         self.txt_out.setPlainText("\n".join(lines))
         try:
-            self._toast.show_toast(self, "Scan complete.")
+            self._toast.show_toast(self, "Scan complete.", kind="success")
         except Exception:
             pass
 
