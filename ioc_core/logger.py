@@ -27,7 +27,12 @@ def setup_diagnostics_logger() -> logging.Logger:
     handler = RotatingFileHandler(path, maxBytes=1_000_000, backupCount=3, encoding="utf-8")
     fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
     handler.setFormatter(fmt)
-    # Rely on redaction filter installed by ioc_core.setup_logging_redaction()
+    # Ensure redaction filter is applied to this handler as well
+    try:
+        from ioc_core import _ApiKeyRedactor  # type: ignore
+        handler.addFilter(_ApiKeyRedactor())
+    except Exception:
+        pass
     logger.addHandler(handler)
     logger.propagate = False
     return logger

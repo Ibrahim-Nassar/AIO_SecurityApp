@@ -16,6 +16,12 @@ ignore = [
 ]
 # Added target version to align with Black and Python runtime
 target-version = "py310"
+# Extend selection with security and modernization subsets
+extend-select = [
+  "UP",
+  "S102","S103","S108","S110","S113","S324","S501","S506","S608",
+  "EXE001",
+]
 
 [tool.ruff.isort]
 # Keep first-party imports grouped for these packages

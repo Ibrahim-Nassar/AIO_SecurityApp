@@ -16,6 +16,35 @@ Use one of the following types in your commit messages:
 
 Scope is optional but recommended (e.g., `(ui)`, `(providers)`).
 
+## Reproduce env
+
+```bash
+# Fresh clone
+python -m pip install --upgrade pip
+python -m pip install -r requirements-lock.txt
+```
+
+## Regenerate lock
+
+```bash
+python -m pip install -r requirements.txt -r requirements-dev.txt
+python -m pip freeze > requirements-lock.txt
+```
+
+## Optional: local precommit hook
+
+```bash
+# Use repo-managed hooks
+git config core.hooksPath .githooks
+
+# On Windows, PowerShell script will run; on *nix, bash fallback is used
+# Bypass for a commit (e.g., when adding test fixtures):
+# PowerShell
+$env:SKIP_SECRET_CHECK='1'; git commit -m "..."; Remove-Item Env:SKIP_SECRET_CHECK
+# Bash
+SKIP_SECRET_CHECK=1 git commit -m "..."
+```
+
 ## Local checks
 
 ```bash
@@ -26,10 +55,13 @@ ruff .
 mypy .
 
 # Run tests (headless Qt if needed)
-# Windows PowerShell
-$env:QT_QPA_PLATFORM='offscreen'; pytest -q
-# Linux/macOS
-QT_QPA_PLATFORM=offscreen pytest -q
+# Providers only
+$env:QT_QPA_PLATFORM='offscreen'; pytest -q -m providers
+# GUI only
+$env:QT_QPA_PLATFORM='offscreen'; pytest -q -m gui
+# Linux/macOS examples
+QT_QPA_PLATFORM=offscreen pytest -q -m providers
+QT_QPA_PLATFORM=offscreen pytest -q -m gui
 ```
 
 ## Secrets and Environment

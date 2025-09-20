@@ -7,12 +7,14 @@ import os
 import unittest
 from unittest import mock
 
+import pytest
 import httpx
 
 from ioc_checker.providers.otx import OTXProvider
 from tests.helpers import FakeAsyncClient, make_response
 
 
+@pytest.mark.providers
 class TestOTXProvider(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         os.environ["OTX_API_KEY"] = "x"

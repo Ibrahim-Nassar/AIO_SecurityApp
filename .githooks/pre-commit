@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Windows PowerShell path if available
+if command -v pwsh >/dev/null 2>&1; then
+  pwsh -NoLogo -NoProfile -File scripts/precommit_secrets.ps1
+  exit $?
+fi
+
+# Fallback: simple grep for secrets on non-Windows
+if [ "${SKIP_SECRET_CHECK:-0}" = "1" ]; then
+  echo "[precommit] Secret check skipped via SKIP_SECRET_CHECK=1"
+  exit 0
+fi
+
+pattern='(?i)(api[_-]?key|token|secret|password)\s*[:=]\s*["\']?[A-Za-z0-9_\-]{12,}'
+hits=0
+while IFS= read -r f; do
+  [ -f "$f" ] || continue
+  case "$f" in tests/*|.git/*) continue;; esac
+  if command -v grep >/dev/null 2>&1; then
+    if grep -nE "$pattern" "$f"; then
+      echo "[precommit] Potential secret in $f" >&2
+      hits=1
+    fi
+  fi
+done < <(git diff --cached --name-only --diff-filter=ACM)
+
+if [ "$hits" -ne 0 ]; then
+  echo "[precommit] Secret scan failed. To bypass, set SKIP_SECRET_CHECK=1 for this commit." >&2
+  exit 1
+fi
+
+echo "[precommit] Secret scan passed."
+exit 0 

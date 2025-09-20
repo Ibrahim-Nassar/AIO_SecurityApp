@@ -7,12 +7,14 @@ import os
 import unittest
 from unittest import mock
 
+import pytest
 import httpx
 
 from ioc_checker.providers.virustotal import VirusTotalProvider
 from tests.helpers import FakeAsyncClient, make_response
 
 
+@pytest.mark.providers
 class TestVTProvider(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         os.environ["VIRUSTOTAL_API_KEY"] = "test"

@@ -27,8 +27,20 @@ jobs:
 
       - name: Install Python deps
         run: |
-          python -m pip install ruff mypy pytest pytest-qt httpx python-dotenv PySide6
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -r requirements-dev.txt
           if [ -f requirements-qt.txt ]; then python -m pip install -r requirements-qt.txt; fi
+
+      - name: Install from lock (reproducible)
+        run: |
+          python -m pip install -r requirements-lock.txt
+          python -m pip freeze | sed -n '1,50p'
+
+      - name: Dependency audit (non-fatal)
+        continue-on-error: true
+        run: |
+          python -m pip install pip-audit || exit 0
+          pip-audit || exit 0
 
       - name: Lint (ruff)
         run: ruff .
@@ -37,9 +49,17 @@ jobs:
         continue-on-error: true
         run: mypy .
 
-      - name: Run tests (headless Qt)
+      - name: Static security scan
+        run: python tools/static_security_check.py
+
+      - name: Run provider tests (headless Qt)
         env:
           QT_QPA_PLATFORM: offscreen
-        run: pytest -q
+        run: pytest -q -m providers
+
+      - name: Run GUI smoke tests (guarded)
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: pytest -q -m gui
 
 

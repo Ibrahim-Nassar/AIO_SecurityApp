@@ -7,6 +7,9 @@ import builtins
 
 import pytest
 
+# Force headless Qt for tests
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
 # Ensure repo root on sys.path
 ROOT = os.path.dirname(os.path.dirname(__file__))
 if ROOT not in sys.path:

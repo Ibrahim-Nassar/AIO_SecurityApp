@@ -20,6 +20,7 @@ from qt_app.ui import SectionCard
 from pathlib import Path
 from dotenv import load_dotenv
 from ioc_core.config_env import resolve_env_path, load_env_file, save_env_kv
+from ioc_core.version import __version__
 
 
 ENV_KEYS = [
@@ -131,6 +132,11 @@ class SettingsPage(QWidget):
         # Populate fields on open using current env
         self._populate_from_env()
         self._update_env_path_label()
+
+        # Footer: app version
+        self._version_label = QLabel(f"Version: {__version__}")
+        self._version_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        root.addWidget(self._version_label)
 
     def _update_status(self, msg: str) -> None:
         self._status_cb(msg)

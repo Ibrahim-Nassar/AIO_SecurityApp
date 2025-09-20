@@ -2,19 +2,21 @@
 # - Replaced tabs with sidebar navigation + toolbar + stacked pages inside a QSplitter
 # - Persisted window geometry and sidebar width via QSettings
 # - Toolbar actions proxy to current page methods without renaming existing page widgets
-from PySide6.QtWidgets import QMainWindow, QApplication, QTabWidget, QStatusBar, QWidget, QListWidget, QStackedWidget, QVBoxLayout, QSplitter, QStyle, QListWidgetItem
+from PySide6.QtWidgets import QMainWindow, QApplication, QTabWidget, QStatusBar, QWidget, QListWidget, QStackedWidget, QVBoxLayout, QSplitter, QStyle, QListWidgetItem, QMessageBox
 from PySide6.QtCore import Qt, QSettings
 from PySide6.QtGui import QIcon, QAction
 
 from .ioc_checker_page import IocCheckerPage
 from .settings_page import SettingsPage
 from .assistant_page import AssistantPage
+from ioc_core.version import __version__
+from datetime import datetime
 
 
 class MainWindow(QMainWindow):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("IOC Checker (Qt)")
+        self.setWindowTitle(f"IOC Checker (Qt) v{__version__}")
         try:
             QApplication.setStyle("Fusion")
         except Exception:
@@ -57,8 +59,6 @@ class MainWindow(QMainWindow):
         self._split.setStretchFactor(1, 1)
         self._restore_splitter()
 
-        # Top toolbar removed per UI simplification (buttons exist within pages)
-
         # Central widget
         cw = QWidget()
         lay = QVBoxLayout(cw)
@@ -70,6 +70,12 @@ class MainWindow(QMainWindow):
         self._sidebar.currentRowChanged.connect(self._on_navigate)
         # Initialize enablement state
         self._on_navigate(self._sidebar.currentRow())
+
+        # About action (minimal)
+        about_action = QAction("About", self)
+        about_action.triggered.connect(self._show_about)
+        self._status.addPermanentWidget(QWidget())  # spacer
+        self._status.addAction(about_action)
 
     def _make_item(self, text: str, icon: QIcon) -> QListWidgetItem:
         it = QListWidgetItem(icon, text)
@@ -113,5 +119,17 @@ class MainWindow(QMainWindow):
     def _on_navigate(self, idx: int) -> None:
         try:
             self._stack.setCurrentIndex(idx)
+        except Exception:
+            pass
+
+    def _show_about(self) -> None:
+        try:
+            build_date = datetime.utcnow().strftime("%Y-%m-%d")
+            providers = "VirusTotal, OTX, AbuseIPDB"
+            QMessageBox.information(
+                self,
+                "About IOC Checker",
+                f"IOC Checker\nVersion: {__version__}\nBuild date: {build_date}\nProviders: {providers}"
+            )
         except Exception:
             pass 

@@ -7,12 +7,14 @@ import os
 import unittest
 from unittest import mock
 
+import pytest
 import httpx
 
 from ioc_checker.providers.abuseipdb import AbuseIPDBProvider
 from tests.helpers import FakeAsyncClient, make_response
 
 
+@pytest.mark.providers
 class TestAbuseProvider(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         os.environ["ABUSEIPDB_API_KEY"] = "x"
